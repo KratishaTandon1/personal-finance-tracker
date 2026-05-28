@@ -23,13 +23,14 @@ It features a **dual-persistence engine** that automatically syncs with a **Supa
 ### 3. Category Budgets & Alert System
 * **Smart Alert Rings**: Set monthly spending limits for individual categories (Food, Rent, Shopping, Bills, etc.). If you exceed 80% of a budget, the dashboard labels turn yellow. If you exceed 100%, the category progress bar turns neon red and logs a budget breach alert.
 
-### 4. 5-in-1 Wealth Suite Command Center
+### 4. 6-in-1 Wealth Suite Command Center
 Accessible directly via the **Wealth Planner** tab:
 1. **Compounding Horizons**: Projections up to 30 years with adjustable interest sliders and interactive growth SVGs.
 2. **FIRE Milestones (Financial Independence, Retire Early)**: Calculates Standard, Lean, and Fat FIRE targets based on your burn rate, predicting the exact age you can retire early.
 3. **Asset Class Rebalancer**: Set target percentages across Stocks, Bonds, Cash, and Crypto, review deviancy guides, and get automated Buy/Sell recommendations alongside historical drawdown logs.
 4. **Debt Strategist**: Input active loans, set monthly payoff extra boosters, compare **Snowball vs. Avalanche** amortization speeds, and view interest-saved calendars.
 5. **FX Leakage Optimizer**: Model currency conversions (USD, EUR, INR) to compare card fees, wire charges, and Wise transfer costs.
+6. **Risk Simulator & Crisis Stress Tester**: Model portfolio paths under 500-run randomized walks (Monte Carlo percentiles) and backtest portfolio sizes against GFC, Dot-com, Great Depression, or COVID-19 stock market crashes.
 
 ### 5. Resilient Auth & Offline Integration
 * **Instant Sandbox Toggle**: A mode-switch button allowing users to instantly swap between Cloud SQL database syncing and Local Cache offline sessions.
@@ -193,7 +194,7 @@ create policy "Users can manage their own subscriptions." on public.subscription
 </details>
 
 <details>
-<summary><b>4. Testing the 5-in-1 Wealth Command Center</b></summary>
+<summary><b>4. Testing the 6-in-1 Wealth Command Center</b></summary>
 
 * **Location**: Click **Wealth Planner** in the sidebar.
 * **Compounding Horizons**: Drag the slider to 30 years and verify that the compounding interest curve graphs and numerical totals update instantly.
@@ -201,6 +202,7 @@ create policy "Users can manage their own subscriptions." on public.subscription
 * **Asset Class Allocator**: Add holdings, change target allocation percentages (e.g., Stocks: 60%, Cash: 40%). Renders target vs. actual SVG doughnut charts and highlights deviation alerts.
 * **Debt Payoff strategizer**: Add 2-3 debts (e.g. Credit Card 1: $1200 at 22%, Loan 2: $4000 at 6%). Toggle between **Avalanche** (highest rate first) and **Snowball** (lowest balance first). Check payoff dates.
 * **FX Leakage Analyzer**: Input a transaction amount and look at Wise transfer costs compared to Bank Wires.
+* **Risk Simulator & Stress Tester**: Open the **Risk Simulator** sub-tab. Adjust inputs (principal, monthly contribution, target goal, asset mix) and look at the Monte Carlo confidence bands SVG graph and success probability. Then select a historical crisis (e.g. 2008 Great Recession) and review simulated drawdowns and portfolio path SVG with trough markers.
 </details>
 
 <details>
