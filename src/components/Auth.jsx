@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { useFinance } from '../context/FinanceContext';
 import { Mail, Lock, Loader, Database, WifiOff } from 'lucide-react';
+import { isSupabaseConfigured } from '../utils/supabaseClient';
 
 export const Auth = () => {
-  const { login, signup, storageMode, showToast, resetPassword } = useFinance();
+  const { login, signup, storageMode, setStorageMode, showToast, resetPassword } = useFinance();
   const [authView, setAuthView] = useState('login'); // 'login' | 'signup' | 'forgot'
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -97,22 +98,44 @@ export const Auth = () => {
         ) : (
           <>
             {storageMode === 'local' ? (
-          <div className="auth-demo-banner">
-            <WifiOff size={16} style={{ flexShrink: 0, marginTop: '2px' }} />
-            <div>
-              <strong>Local Demo Mode Active</strong>
-              <br />
-              Supabase credentials not found. Your accounts and data will be saved locally in this browser. Perfect for offline evaluation!
+          <div className="auth-demo-banner" style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
+              <WifiOff size={16} style={{ flexShrink: 0, marginTop: '2px' }} />
+              <div>
+                <strong>Offline Sandbox Mode Active</strong>
+                <br />
+                Saving accounts and records locally in this browser. Zero cloud dependencies.
+              </div>
             </div>
+            {isSupabaseConfigured && (
+              <button 
+                type="button" 
+                className="btn-secondary" 
+                style={{ fontSize: '11px', padding: '4px 8px', alignSelf: 'flex-start', background: 'rgba(255,255,255,0.05)', color: '#f59e0b', borderColor: 'rgba(245, 158, 11, 0.3)' }}
+                onClick={() => { setStorageMode('supabase'); setError(''); }}
+              >
+                🔌 Switch to Cloud Mode (Supabase)
+              </button>
+            )}
           </div>
         ) : (
-          <div className="auth-demo-banner" style={{ backgroundColor: 'rgba(16, 185, 129, 0.08)', borderColor: 'rgba(16, 185, 129, 0.2)', color: '#10b981' }}>
-            <Database size={16} style={{ flexShrink: 0, marginTop: '2px' }} />
-            <div>
-              <strong>Cloud Mode (Supabase Connected)</strong>
-              <br />
-              Connected to secure PostgreSQL database. Your records are synced in real-time.
+          <div className="auth-demo-banner" style={{ backgroundColor: 'rgba(16, 185, 129, 0.08)', borderColor: 'rgba(16, 185, 129, 0.2)', color: '#10b981', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
+              <Database size={16} style={{ flexShrink: 0, marginTop: '2px' }} />
+              <div>
+                <strong>Cloud Mode (Supabase Connected)</strong>
+                <br />
+                Connected to secure PostgreSQL database. Your records are synced in real-time.
+              </div>
             </div>
+            <button 
+              type="button" 
+              className="btn-secondary" 
+              style={{ fontSize: '11px', padding: '4px 8px', alignSelf: 'flex-start', background: 'rgba(255,255,255,0.05)', color: '#10b981', borderColor: 'rgba(16, 185, 129, 0.3)' }}
+              onClick={() => { setStorageMode('local'); setError(''); }}
+            >
+              🌐 Switch to Offline Sandbox
+            </button>
           </div>
         )}
 

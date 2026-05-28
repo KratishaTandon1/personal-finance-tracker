@@ -1022,6 +1022,7 @@ export const FinanceProvider = ({ children }) => {
       currency,
       loading,
       storageMode,
+      setStorageMode,
       achievements,
       aiTips,
       activeToast,
