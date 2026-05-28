@@ -139,15 +139,18 @@ export const FinanceProvider = ({ children }) => {
   const loadUserData = async (userId) => {
     setLoading(true);
     try {
-      // Load Profile (currency/budget)
-      const { data: profile, error: pError } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', userId)
-        .single();
+      // Load all data in parallel to avoid sequential network latency
+      const [profileRes, transactionsRes, budgetsRes, goalsRes, subscriptionsRes] = await Promise.all([
+        supabase.from('profiles').select('*').eq('id', userId).single(),
+        supabase.from('transactions').select('*').eq('user_id', userId).order('date', { ascending: false }),
+        supabase.from('budgets').select('*').eq('user_id', userId),
+        supabase.from('goals').select('*').eq('user_id', userId),
+        supabase.from('subscriptions').select('*').eq('user_id', userId)
+      ]);
 
+      // 1. Process Profile
+      const { data: profile, error: pError } = profileRes;
       if (pError && pError.code !== 'PGRST116') throw pError;
-
       if (profile) {
         setCurrency(profile.currency || 'USD');
       } else {
@@ -158,22 +161,13 @@ export const FinanceProvider = ({ children }) => {
         }
       }
 
-      // Load Transactions
-      const { data: txs, error: tError } = await supabase
-        .from('transactions')
-        .select('*')
-        .eq('user_id', userId)
-        .order('date', { ascending: false });
-
+      // 2. Process Transactions
+      const { data: txs, error: tError } = transactionsRes;
       if (tError) throw tError;
       setTransactions(txs || []);
 
-      // Load Budgets
-      const { data: bgts, error: bError } = await supabase
-        .from('budgets')
-        .select('*')
-        .eq('user_id', userId);
-
+      // 3. Process Budgets
+      const { data: bgts, error: bError } = budgetsRes;
       if (bError) throw bError;
       const budgetMap = {};
       bgts?.forEach(b => {
@@ -181,17 +175,15 @@ export const FinanceProvider = ({ children }) => {
       });
       setBudgets(budgetMap);
 
-      // Load Goals (Supabase fallback checked)
-      try {
-        const { data: gls } = await supabase.from('goals').select('*').eq('user_id', userId);
-        setGoals(gls || []);
-      } catch (e) { console.warn('Supabase goals load failed', e); }
+      // 4. Process Goals
+      const { data: gls, error: gError } = goalsRes;
+      if (gError) console.warn('Supabase goals load failed', gError);
+      setGoals(gls || []);
 
-      // Load Subscriptions (Supabase fallback checked)
-      try {
-        const { data: sbs } = await supabase.from('subscriptions').select('*').eq('user_id', userId);
-        setSubscriptions(sbs || []);
-      } catch (e) { console.warn('Supabase subscriptions load failed', e); }
+      // 5. Process Subscriptions
+      const { data: sbs, error: sError } = subscriptionsRes;
+      if (sError) console.warn('Supabase subscriptions load failed', sError);
+      setSubscriptions(sbs || []);
 
     } catch (err) {
       console.error('Failed to load database content. Running in local storage fallback:', err);
