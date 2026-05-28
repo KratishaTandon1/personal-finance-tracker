@@ -8,6 +8,7 @@ import { SavingsGoals } from './components/SavingsGoals';
 import { Subscriptions } from './components/Subscriptions';
 import { WealthyAI } from './components/WealthyAI';
 import { WealthSuite } from './components/WealthSuite';
+import { ResetPassword } from './components/ResetPassword';
 import { 
   LayoutDashboard, 
   List, 
@@ -26,7 +27,7 @@ import {
 } from 'lucide-react';
 
 const AppInner = () => {
-  const { user, loading, storageMode, logout, currency, setCurrency, activeToast } = useFinance();
+  const { user, loading, storageMode, logout, currency, setCurrency, activeToast, isRecovering } = useFinance();
   const [activeTab, setActiveTab] = useState('dashboard'); // 'dashboard' | 'transactions' | 'goals' | 'subscriptions' | 'chat' | 'wealth'
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   
@@ -46,7 +47,23 @@ const AppInner = () => {
     );
   }
 
-  // 1. If not logged in, render Auth screen (with toast notification support)
+  // 1. If recovering password, render Reset Password screen (with toast support)
+  if (isRecovering) {
+    return (
+      <>
+        <ResetPassword />
+        {activeToast && (
+          <div className="toast-container">
+            <div className={`toast ${activeToast.type}`}>
+              <span>{activeToast.message}</span>
+            </div>
+          </div>
+        )}
+      </>
+    );
+  }
+
+  // 2. If not logged in, render Auth screen (with toast notification support)
   if (!user) {
     return (
       <>

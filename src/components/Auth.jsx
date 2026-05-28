@@ -3,8 +3,8 @@ import { useFinance } from '../context/FinanceContext';
 import { Mail, Lock, Loader, Database, WifiOff } from 'lucide-react';
 
 export const Auth = () => {
-  const { login, signup, storageMode, showToast } = useFinance();
-  const [isLogin, setIsLogin] = useState(true);
+  const { login, signup, storageMode, showToast, resetPassword } = useFinance();
+  const [authView, setAuthView] = useState('login'); // 'login' | 'signup' | 'forgot'
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -14,6 +14,26 @@ export const Auth = () => {
     e.preventDefault();
     setError('');
     setLoading(true);
+
+    if (authView === 'forgot') {
+      if (!email) {
+        setError('Please enter your email address');
+        setLoading(false);
+        return;
+      }
+      try {
+        await resetPassword(email);
+        setAuthView('login');
+      } catch (err) {
+        console.error(err);
+        const errMsg = err.message || 'Failed to send password reset email. Please try again.';
+        setError(errMsg);
+        if (showToast) showToast(errMsg, 'danger');
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
 
     if (!email || !password) {
       setError('Please fill in all fields');
@@ -28,7 +48,7 @@ export const Auth = () => {
     }
 
     try {
-      if (isLogin) {
+      if (authView === 'login') {
         await login(email, password);
       } else {
         await signup(email, password);
@@ -74,24 +94,33 @@ export const Auth = () => {
           </div>
         )}
 
-        <div className="auth-tabs">
-          <button
-            type="button"
-            className={`auth-tab-btn ${isLogin ? 'active' : ''}`}
-            onClick={() => { setIsLogin(true); setError(''); }}
-            disabled={loading}
-          >
-            Sign In
-          </button>
-          <button
-            type="button"
-            className={`auth-tab-btn ${!isLogin ? 'active' : ''}`}
-            onClick={() => { setIsLogin(false); setError(''); }}
-            disabled={loading}
-          >
-            Sign Up
-          </button>
-        </div>
+        {authView !== 'forgot' ? (
+          <div className="auth-tabs">
+            <button
+              type="button"
+              className={`auth-tab-btn ${authView === 'login' ? 'active' : ''}`}
+              onClick={() => { setAuthView('login'); setError(''); }}
+              disabled={loading}
+            >
+              Sign In
+            </button>
+            <button
+              type="button"
+              className={`auth-tab-btn ${authView === 'signup' ? 'active' : ''}`}
+              onClick={() => { setAuthView('signup'); setError(''); }}
+              disabled={loading}
+            >
+              Sign Up
+            </button>
+          </div>
+        ) : (
+          <div style={{ textAlign: 'center', padding: '4px 0' }}>
+            <span style={{ fontSize: '15px', fontWeight: '600', color: 'var(--text-primary)' }}>Reset Password Link</span>
+            <p style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '4px' }}>
+              Enter your registered email below to receive a password reset link.
+            </p>
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} className="auth-form">
           {error && (
@@ -118,41 +147,69 @@ export const Auth = () => {
             </div>
           </div>
 
-          <div className="auth-input-group">
-            <label htmlFor="password">Password</label>
-            <div style={{ position: 'relative' }}>
-              <Lock size={16} style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-              <input
-                id="password"
-                type="password"
-                placeholder="••••••••"
-                className="input-field"
-                style={{ paddingLeft: '42px' }}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                disabled={loading}
-                required
-              />
+          {authView !== 'forgot' && (
+            <div className="auth-input-group">
+              <label htmlFor="password">Password</label>
+              <div style={{ position: 'relative' }}>
+                <Lock size={16} style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                <input
+                  id="password"
+                  type="password"
+                  placeholder="••••••••"
+                  className="input-field"
+                  style={{ paddingLeft: '42px' }}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  disabled={loading}
+                  required
+                />
+              </div>
             </div>
-          </div>
+          )}
+
+          {authView === 'login' && (
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '-8px' }}>
+              <button
+                type="button"
+                style={{ background: 'none', border: 'none', color: 'var(--color-primary)', fontSize: '12px', cursor: 'pointer', padding: 0 }}
+                onClick={() => { setAuthView('forgot'); setError(''); }}
+              >
+                Forgot Password?
+              </button>
+            </div>
+          )}
 
           <button type="submit" className="btn-primary" disabled={loading}>
             {loading ? (
               <>
                 <Loader size={18} className="animate-spin" style={{ animation: 'spin 1s linear infinite' }} />
-                Authenticating...
+                Working...
               </>
             ) : (
-              isLogin ? 'Sign In' : 'Create Account'
+              authView === 'login' ? 'Sign In' : authView === 'signup' ? 'Create Account' : 'Send Reset Link'
             )}
           </button>
+
+          {authView === 'forgot' && (
+            <div style={{ textAlign: 'center', marginTop: '4px' }}>
+              <button
+                type="button"
+                style={{ background: 'none', border: 'none', color: 'var(--color-primary)', fontSize: '13px', cursor: 'pointer', padding: 0, textDecoration: 'underline' }}
+                onClick={() => { setAuthView('login'); setError(''); }}
+              >
+                Back to Sign In
+              </button>
+            </div>
+          )}
         </form>
 
         <div className="auth-footer">
-          {isLogin ? (
+          {authView === 'login' ? (
             <p>Evaluating? You can register a mock email instantly.</p>
-          ) : (
+          ) : authView === 'signup' ? (
             <p>Signing up will create a new sandboxed wallet.</p>
+          ) : (
+            <p>A link will be sent to confirm and reset your credentials.</p>
           )}
         </div>
       </div>

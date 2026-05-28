@@ -36,6 +36,7 @@ export const FinanceProvider = ({ children }) => {
   const [toastTimeoutId, setToastTimeoutId] = useState(null);
   const [goals, setGoals] = useState([]);
   const [subscriptions, setSubscriptions] = useState([]);
+  const [isRecovering, setIsRecovering] = useState(false);
 
   const showToast = (message, type = 'info') => {
     if (toastTimeoutId) clearTimeout(toastTimeoutId);
@@ -65,6 +66,9 @@ export const FinanceProvider = ({ children }) => {
 
           // Listen for auth changes
           const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+            if (event === 'PASSWORD_RECOVERY') {
+              setIsRecovering(true);
+            }
             if (session) {
               setUser(session.user);
               await loadUserData(session.user.id);
@@ -281,6 +285,36 @@ export const FinanceProvider = ({ children }) => {
       setGoals([]);
       setSubscriptions([]);
       setLoading(false);
+    }
+  };
+
+  const resetPassword = async (email) => {
+    setLoading(true);
+    if (storageMode === 'supabase') {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: window.location.origin
+      });
+      setLoading(false);
+      if (error) throw error;
+      showToast('Password reset link sent to your email!', 'success');
+    } else {
+      setLoading(false);
+      showToast('Local Mode: Reset link simulated!', 'success');
+    }
+  };
+
+  const updatePassword = async (newPassword) => {
+    setLoading(true);
+    if (storageMode === 'supabase') {
+      const { error } = await supabase.auth.updateUser({ password: newPassword });
+      setLoading(false);
+      if (error) throw error;
+      setIsRecovering(false);
+      showToast('Password updated successfully! You are now logged in.', 'success');
+    } else {
+      setLoading(false);
+      setIsRecovering(false);
+      showToast('Local Mode: Password updated successfully!', 'success');
     }
   };
 
@@ -999,6 +1033,10 @@ export const FinanceProvider = ({ children }) => {
       login,
       signup,
       logout,
+      resetPassword,
+      updatePassword,
+      isRecovering,
+      setIsRecovering,
       addTransaction,
       editTransaction,
       deleteTransaction,
