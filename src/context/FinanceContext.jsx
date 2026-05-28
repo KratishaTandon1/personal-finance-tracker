@@ -36,7 +36,9 @@ export const FinanceProvider = ({ children }) => {
   const [toastTimeoutId, setToastTimeoutId] = useState(null);
   const [goals, setGoals] = useState([]);
   const [subscriptions, setSubscriptions] = useState([]);
-  const [isRecovering, setIsRecovering] = useState(false);
+  const [isRecovering, setIsRecovering] = useState(() => {
+    return typeof window !== 'undefined' && window.location.hash && window.location.hash.includes('type=recovery');
+  });
 
   const showToast = (message, type = 'info') => {
     if (toastTimeoutId) clearTimeout(toastTimeoutId);
@@ -310,6 +312,9 @@ export const FinanceProvider = ({ children }) => {
       setLoading(false);
       if (error) throw error;
       setIsRecovering(false);
+      if (typeof window !== 'undefined') {
+        window.history.replaceState(null, null, window.location.pathname);
+      }
       showToast('Password updated successfully! You are now logged in.', 'success');
     } else {
       setLoading(false);
