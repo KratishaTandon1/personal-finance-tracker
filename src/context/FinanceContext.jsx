@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { supabase, isSupabaseConfigured } from '../utils/supabaseClient';
 
 const FinanceContext = createContext();
@@ -40,6 +40,11 @@ export const FinanceProvider = ({ children }) => {
     return typeof window !== 'undefined' && window.location.hash && window.location.hash.includes('type=recovery');
   });
 
+  const loadingRef = useRef(loading);
+  useEffect(() => {
+    loadingRef.current = loading;
+  }, [loading]);
+
   const showToast = (message, type = 'info') => {
     if (toastTimeoutId) clearTimeout(toastTimeoutId);
     setActiveToast({ message, type });
@@ -51,23 +56,17 @@ export const FinanceProvider = ({ children }) => {
 
   // 1. AUTHENTICATION & INITIAL LOADING
   useEffect(() => {
+    let active = true;
+    let subscription = null;
+
     const initializeAuth = async () => {
       if (storageMode === 'supabase') {
         try {
-          // Check current session
-          const { data: { session }, error } = await supabase.auth.getSession();
-          if (error) throw error;
+          // Listen for auth changes. This fires immediately with the current session on startup.
+          const { data } = supabase.auth.onAuthStateChange(async (event, session) => {
+            if (!active) return;
+            console.log(`Supabase Auth event: ${event}`, session?.user?.email || 'No user');
 
-          if (session) {
-            setUser(session.user);
-            await loadUserData(session.user.id);
-          } else {
-            setUser(null);
-            setLoading(false);
-          }
-
-          // Listen for auth changes
-          const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
             if (event === 'PASSWORD_RECOVERY') {
               setIsRecovering(true);
             }
@@ -84,11 +83,15 @@ export const FinanceProvider = ({ children }) => {
             }
           });
 
-          return () => subscription.unsubscribe();
+          if (data && data.subscription) {
+            subscription = data.subscription;
+          }
         } catch (err) {
-          console.error('Supabase Auth error. Falling back to local storage auth:', err);
-          setStorageMode('local');
-          loadLocalAuth();
+          console.error('Supabase Auth subscription error. Falling back to local storage auth:', err);
+          if (active) {
+            setStorageMode('local');
+            loadLocalAuth();
+          }
         }
       } else {
         loadLocalAuth();
@@ -96,6 +99,23 @@ export const FinanceProvider = ({ children }) => {
     };
 
     initializeAuth();
+
+    // Fail-safe timeout: fallback to local mode if initialization hangs
+    const timeoutId = setTimeout(() => {
+      if (active && loadingRef.current && storageMode === 'supabase') {
+        console.warn('Supabase auth initialization timed out. Falling back to local mode.');
+        setStorageMode('local');
+        loadLocalAuth();
+      }
+    }, 4500);
+
+    return () => {
+      active = false;
+      clearTimeout(timeoutId);
+      if (subscription) {
+        subscription.unsubscribe();
+      }
+    };
   }, [storageMode]);
 
   const loadLocalAuth = () => {
@@ -132,7 +152,10 @@ export const FinanceProvider = ({ children }) => {
         setCurrency(profile.currency || 'USD');
       } else {
         // Create profile if not exists
-        await supabase.from('profiles').insert([{ id: userId, currency: 'USD' }]);
+        const { error: insertError } = await supabase.from('profiles').insert([{ id: userId, currency: 'USD' }]);
+        if (insertError) {
+          console.warn('Failed to insert default profile. This may be due to a missing INSERT RLS policy on the profiles table:', insertError);
+        }
       }
 
       // Load Transactions
@@ -181,24 +204,48 @@ export const FinanceProvider = ({ children }) => {
 
   const loadLocalData = (userId) => {
     // Load local transactions
-    const txsJson = localStorage.getItem(`finance_txs_${userId}`);
-    setTransactions(txsJson ? JSON.parse(txsJson) : []);
+    try {
+      const txsJson = localStorage.getItem(`finance_txs_${userId}`);
+      setTransactions(txsJson ? JSON.parse(txsJson) : []);
+    } catch (e) {
+      console.error('Failed to parse local transactions:', e);
+      setTransactions([]);
+    }
 
     // Load local budgets
-    const bgtsJson = localStorage.getItem(`finance_budgets_${userId}`);
-    setBudgets(bgtsJson ? JSON.parse(bgtsJson) : {});
+    try {
+      const bgtsJson = localStorage.getItem(`finance_budgets_${userId}`);
+      setBudgets(bgtsJson ? JSON.parse(bgtsJson) : {});
+    } catch (e) {
+      console.error('Failed to parse local budgets:', e);
+      setBudgets({});
+    }
 
     // Load local preferences
-    const curr = localStorage.getItem(`finance_currency_${userId}`);
-    if (curr) setCurrency(curr);
+    try {
+      const curr = localStorage.getItem(`finance_currency_${userId}`);
+      if (curr) setCurrency(curr);
+    } catch (e) {
+      console.error('Failed to parse local currency:', e);
+    }
 
     // Load local goals
-    const goalsJson = localStorage.getItem(`finance_goals_${userId}`);
-    setGoals(goalsJson ? JSON.parse(goalsJson) : []);
+    try {
+      const goalsJson = localStorage.getItem(`finance_goals_${userId}`);
+      setGoals(goalsJson ? JSON.parse(goalsJson) : []);
+    } catch (e) {
+      console.error('Failed to parse local goals:', e);
+      setGoals([]);
+    }
 
     // Load local subscriptions
-    const subsJson = localStorage.getItem(`finance_subs_${userId}`);
-    setSubscriptions(subsJson ? JSON.parse(subsJson) : []);
+    try {
+      const subsJson = localStorage.getItem(`finance_subs_${userId}`);
+      setSubscriptions(subsJson ? JSON.parse(subsJson) : []);
+    } catch (e) {
+      console.error('Failed to parse local subscriptions:', e);
+      setSubscriptions([]);
+    }
 
     setLoading(false);
   };
