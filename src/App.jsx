@@ -46,9 +46,20 @@ const AppInner = () => {
     );
   }
 
-  // 1. If not logged in, render Auth screen
+  // 1. If not logged in, render Auth screen (with toast notification support)
   if (!user) {
-    return <Auth />;
+    return (
+      <>
+        <Auth />
+        {activeToast && (
+          <div className="toast-container">
+            <div className={`toast ${activeToast.type}`}>
+              <span>{activeToast.message}</span>
+            </div>
+          </div>
+        )}
+      </>
+    );
   }
 
   // 2. Open Add transaction modal

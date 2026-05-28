@@ -3,7 +3,7 @@ import { useFinance } from '../context/FinanceContext';
 import { Mail, Lock, Loader, Database, WifiOff } from 'lucide-react';
 
 export const Auth = () => {
-  const { login, signup, storageMode } = useFinance();
+  const { login, signup, storageMode, showToast } = useFinance();
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -35,7 +35,9 @@ export const Auth = () => {
       }
     } catch (err) {
       console.error(err);
-      setError(err.message || 'Authentication failed. Please try again.');
+      const errMsg = err.message || 'Authentication failed. Please try again.';
+      setError(errMsg);
+      if (showToast) showToast(errMsg, 'danger');
     } finally {
       setLoading(false);
     }
