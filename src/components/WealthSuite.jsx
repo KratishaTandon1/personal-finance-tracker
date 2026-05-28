@@ -25,7 +25,7 @@ const RISK_PRESETS = [
 
 export const WealthSuite = () => {
   const { currency, transactions } = useFinance();
-  const [activeSubTab, setActiveSubTab] = useState('compounding'); // 'compounding' | 'fire' | 'assets' | 'debts' | 'fx'
+  const [activeSubTab, setActiveSubTab] = useState('compounding'); // 'compounding' | 'fire' | 'assets' | 'debts' | 'fx' | 'montecarlo'
 
   // Format Helper
   const formatMoney = (val) => {
@@ -35,6 +35,324 @@ export const WealthSuite = () => {
 
   const getSymbol = () => {
     return currency === 'EUR' ? '€' : currency === 'INR' ? '₹' : '$';
+  };
+
+  // ==========================================================================
+  // TAB 6: MONTE CARLO & CRISIS RISK SIMULATION STATE & LOGIC
+  // ==========================================================================
+  const [mcPrincipal, setMcPrincipal] = useState(20000);
+  const [mcContribution, setMcContribution] = useState(400); // monthly
+  const [mcGoal, setMcGoal] = useState(250000);
+  const [mcYears, setMcYears] = useState(20);
+  const [mcAllocation, setMcAllocation] = useState('moderate');
+  const [selectedCrisis, setSelectedCrisis] = useState('gfc');
+  
+  const [mcHoverIndex, setMcHoverIndex] = useState(null);
+  const [crisisHoverIndex, setCrisisHoverIndex] = useState(null);
+
+  const mcChartRef = useRef(null);
+  const crisisChartRef = useRef(null);
+
+  // Asset profiles with expected returns and volatility (std dev)
+  const allocationProfiles = {
+    conservative: { name: 'Conservative Balanced', return: 4.5, vol: 5.5, stocks: 30, bonds: 70 },
+    moderate: { name: 'Moderate Growth', return: 7.5, vol: 11.0, stocks: 60, bonds: 40 },
+    aggressive: { name: 'Aggressive Stocks', return: 10.5, vol: 17.0, stocks: 90, bonds: 10 }
+  };
+
+  // Generate Monte Carlo simulation data (500 trials)
+  const mcData = useMemo(() => {
+    const trialsCount = 500;
+    const yearsCount = mcYears;
+    const profile = allocationProfiles[mcAllocation];
+    
+    // Convert annual return & vol to monthly
+    const rAnn = profile.return / 100;
+    const vAnn = profile.vol / 100;
+    const rMonthly = rAnn / 12;
+    const vMonthly = vAnn / Math.sqrt(12);
+
+    // Helper for normal random variables (Box-Muller)
+    const randomNormal = (mean, std) => {
+      let u1 = 0, u2 = 0;
+      while (u1 === 0) u1 = Math.random();
+      while (u2 === 0) u2 = Math.random();
+      const z = Math.sqrt(-2.0 * Math.log(u1)) * Math.cos(2.0 * Math.PI * u2);
+      return z * std + mean;
+    };
+
+    // Store final year-by-year values for all trials
+    // Format: yearsArray[yearIndex] = [valueTrial1, valueTrial2, ...]
+    const yearsArray = Array.from({ length: yearsCount + 1 }, () => []);
+    
+    // Seed year 0
+    for (let t = 0; t < trialsCount; t++) {
+      yearsArray[0].push(mcPrincipal);
+    }
+
+    // Run simulations
+    for (let t = 0; t < trialsCount; t++) {
+      let balance = mcPrincipal;
+      for (let y = 1; y <= yearsCount; y++) {
+        for (let m = 0; m < 12; m++) {
+          const monthlyReturn = randomNormal(rMonthly, vMonthly);
+          balance = balance * (1 + monthlyReturn) + mcContribution;
+        }
+        yearsArray[y].push(balance);
+      }
+    }
+
+    // Compute percentiles for each year
+    const percentiles = [];
+    let successCount = 0;
+
+    for (let y = 0; y <= yearsCount; y++) {
+      const yearValues = [...yearsArray[y]].sort((a, b) => a - b);
+      
+      // 10th percentile (Pessimistic - lower boundary)
+      const p10 = yearValues[Math.floor(trialsCount * 0.1)];
+      // 50th percentile (Median - central path)
+      const p50 = yearValues[Math.floor(trialsCount * 0.5)];
+      // 90th percentile (Optimistic - upper boundary)
+      const p90 = yearValues[Math.floor(trialsCount * 0.9)];
+
+      percentiles.push({
+        year: y,
+        p10,
+        p50,
+        p90
+      });
+
+      // Calculate final success rate
+      if (y === yearsCount) {
+        successCount = yearValues.filter(val => val >= mcGoal).length;
+      }
+    }
+
+    const successRate = Math.round((successCount / trialsCount) * 100);
+
+    return {
+      percentiles,
+      successRate
+    };
+  }, [mcPrincipal, mcContribution, mcYears, mcAllocation, mcGoal]);
+
+  const crisisProfiles = {
+    gfc: {
+      name: '2008 Great Financial Crisis',
+      duration: 24,
+      desc: 'Housing market collapse triggers subprime debt crisis. Equities halved while treasuries rose.'
+    },
+    dotcom: {
+      name: '2000 Dot-com Bubble Burst',
+      duration: 36,
+      desc: 'Overvalued internet tech stocks crash. Growth equities tanked while defensive assets rose.'
+    },
+    depression: {
+      name: '1929 Great Depression',
+      duration: 48,
+      desc: 'Wall Street crash leads to massive deflation and economic collapse. High volatility.'
+    },
+    covid: {
+      name: '2020 COVID Crash',
+      duration: 12,
+      desc: 'Pandemic lockdown triggers record fast drop (-33%) followed by unprecedented tech rally.'
+    }
+  };
+
+  const crisisData = useMemo(() => {
+    const crisis = crisisProfiles[selectedCrisis];
+    const duration = crisis.duration;
+    const profile = allocationProfiles[mcAllocation];
+    const stockWeight = profile.stocks / 100;
+    const bondWeight = profile.bonds / 100;
+
+    const list = [];
+    let balance = mcPrincipal;
+    list.push({ month: 0, balance, drawPct: 0 });
+
+    const getReturns = (m) => {
+      let stockRet = 0;
+      let bondRet = 0.003; // ~3.6% annual bond return
+
+      if (selectedCrisis === 'gfc') {
+        stockRet = m <= 18 ? -0.038 : 0.035;
+        bondRet = 0.0035;
+      } else if (selectedCrisis === 'dotcom') {
+        stockRet = m <= 28 ? -0.021 : 0.028;
+        bondRet = 0.0032;
+      } else if (selectedCrisis === 'depression') {
+        stockRet = m <= 36 ? -0.052 : 0.038;
+        bondRet = 0.002;
+      } else if (selectedCrisis === 'covid') {
+        if (m <= 2) stockRet = -0.165;
+        else if (m <= 8) stockRet = 0.082;
+        else stockRet = 0.021;
+        bondRet = 0.0025;
+      }
+
+      return { stockRet, bondRet };
+    };
+
+    let peak = mcPrincipal;
+    let maxDraw = 0;
+
+    for (let m = 1; m <= duration; m++) {
+      const { stockRet, bondRet } = getReturns(m);
+      const monthlyReturn = (stockRet * stockWeight) + (bondRet * bondWeight);
+      balance = balance * (1 + monthlyReturn);
+      
+      if (balance > peak) peak = balance;
+      const drawdown = ((peak - balance) / peak) * 100;
+      if (drawdown > maxDraw) maxDraw = drawdown;
+
+      list.push({
+        month: m,
+        balance,
+        drawPct: -drawdown
+      });
+    }
+
+    const minBalance = Math.min(...list.map(d => d.balance));
+    const totalLostVal = mcPrincipal - minBalance;
+
+    return {
+      list,
+      maxDraw,
+      trough: minBalance,
+      totalLostVal
+    };
+  }, [selectedCrisis, mcPrincipal, mcAllocation]);
+
+  // --------------------------------------------------------------------------
+  // Monte Carlo Graph Calculations
+  // --------------------------------------------------------------------------
+  const maxMcVal = useMemo(() => {
+    return Math.max(...mcData.percentiles.map(d => d.p90), 1000);
+  }, [mcData]);
+
+  const mcCoords = useMemo(() => {
+    const coords = [];
+    const len = mcData.percentiles.length;
+    if (len === 0) return coords;
+    const graphWidth = svgW - padding.left - padding.right;
+    const graphHeight = svgH - padding.top - padding.bottom;
+
+    mcData.percentiles.forEach((d, idx) => {
+      const x = padding.left + (idx / (len - 1)) * graphWidth;
+      const yP10 = padding.top + graphHeight - (d.p10 / maxMcVal) * graphHeight;
+      const yP50 = padding.top + graphHeight - (d.p50 / maxMcVal) * graphHeight;
+      const yP90 = padding.top + graphHeight - (d.p90 / maxMcVal) * graphHeight;
+      coords.push({ x, yP10, yP50, yP90, data: d });
+    });
+    return coords;
+  }, [mcData, maxMcVal]);
+
+  const mcLines = useMemo(() => {
+    if (mcCoords.length === 0) return { p10: '', p50: '', p90: '' };
+    return {
+      p10: mcCoords.map((c, i) => `${i === 0 ? 'M' : 'L'} ${c.x} ${c.yP10}`).join(' '),
+      p50: mcCoords.map((c, i) => `${i === 0 ? 'M' : 'L'} ${c.x} ${c.yP50}`).join(' '),
+      p90: mcCoords.map((c, i) => `${i === 0 ? 'M' : 'L'} ${c.x} ${c.yP90}`).join(' ')
+    };
+  }, [mcCoords]);
+
+  // Generate shaded area between p10 and p90
+  const mcConfidencePolygon = useMemo(() => {
+    if (mcCoords.length === 0) return '';
+    const points = [];
+    
+    // Path forward along P90 line
+    mcCoords.forEach(c => {
+      points.push(`${c.x},${c.yP90}`);
+    });
+    // Path backward along P10 line
+    for (let i = mcCoords.length - 1; i >= 0; i--) {
+      const c = mcCoords[i];
+      points.push(`${c.x},${c.yP10}`);
+    }
+    
+    return points.join(' ');
+  }, [mcCoords]);
+
+  const mcGoalY = useMemo(() => {
+    if (mcGoal > maxMcVal) return null;
+    const graphHeight = svgH - padding.top - padding.bottom;
+    return padding.top + graphHeight - (mcGoal / maxMcVal) * graphHeight;
+  }, [mcGoal, maxMcVal]);
+
+  const handleMcMouseMove = (e) => {
+    if (!mcChartRef.current || mcCoords.length === 0) return;
+    const rect = mcChartRef.current.getBoundingClientRect();
+    const mouseX = e.clientX - rect.left;
+    const graphWidth = svgW - padding.left - padding.right;
+    const relativeX = ((mouseX / rect.width) * svgW) - padding.left;
+    const pct = Math.max(0, Math.min(relativeX / graphWidth, 1));
+    const index = Math.round(pct * (mcData.percentiles.length - 1));
+    setMcHoverIndex(index);
+    setMousePos({
+      x: (mouseX / rect.width) * 100,
+      y: ((e.clientY - rect.top) / rect.height) * 100
+    });
+  };
+
+  // --------------------------------------------------------------------------
+  // Crisis Graph Calculations
+  // --------------------------------------------------------------------------
+  const maxCrisisVal = useMemo(() => {
+    return Math.max(...crisisData.list.map(d => d.balance), mcPrincipal, 1000);
+  }, [crisisData, mcPrincipal]);
+
+  const crisisCoords = useMemo(() => {
+    const coords = [];
+    const len = crisisData.list.length;
+    if (len === 0) return coords;
+    const graphWidth = svgW - padding.left - padding.right;
+    const graphHeight = svgH - padding.top - padding.bottom;
+
+    crisisData.list.forEach((d, idx) => {
+      const x = padding.left + (idx / (len - 1)) * graphWidth;
+      const yVal = padding.top + graphHeight - (d.balance / maxCrisisVal) * graphHeight;
+      coords.push({ x, yVal, data: d });
+    });
+    return coords;
+  }, [crisisData, maxCrisisVal]);
+
+  const crisisLinePath = useMemo(() => {
+    if (crisisCoords.length === 0) return '';
+    return crisisCoords.map((c, i) => `${i === 0 ? 'M' : 'L'} ${c.x} ${c.yVal}`).join(' ');
+  }, [crisisCoords]);
+
+  const crisisAreaPath = useMemo(() => {
+    if (crisisCoords.length === 0) return '';
+    const first = crisisCoords[0];
+    const last = crisisCoords[crisisCoords.length - 1];
+    return `${crisisLinePath} L ${last.x} ${svgH - padding.bottom} L ${first.x} ${svgH - padding.bottom} Z`;
+  }, [crisisCoords, crisisLinePath]);
+
+  const crisisStartValY = useMemo(() => {
+    const graphHeight = svgH - padding.top - padding.bottom;
+    return padding.top + graphHeight - (mcPrincipal / maxCrisisVal) * graphHeight;
+  }, [mcPrincipal, maxCrisisVal]);
+
+  const crisisTroughCoords = useMemo(() => {
+    const troughItemIndex = crisisData.list.findIndex(d => d.balance === crisisData.trough);
+    return crisisCoords[troughItemIndex] || null;
+  }, [crisisData, crisisCoords]);
+
+  const handleCrisisMouseMove = (e) => {
+    if (!crisisChartRef.current || crisisCoords.length === 0) return;
+    const rect = crisisChartRef.current.getBoundingClientRect();
+    const mouseX = e.clientX - rect.left;
+    const graphWidth = svgW - padding.left - padding.right;
+    const relativeX = ((mouseX / rect.width) * svgW) - padding.left;
+    const pct = Math.max(0, Math.min(relativeX / graphWidth, 1));
+    const index = Math.round(pct * (crisisData.list.length - 1));
+    setCrisisHoverIndex(index);
+    setMousePos({
+      x: (mouseX / rect.width) * 100,
+      y: ((e.clientY - rect.top) / rect.height) * 100
+    });
   };
 
   // ==========================================================================
@@ -445,7 +763,7 @@ export const WealthSuite = () => {
     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
       
       {/* Tab Navigation header */}
-      <div className="auth-tabs" style={{ maxWidth: '650px', background: 'rgba(255,255,255,0.01)', border: '1px solid var(--color-border)' }}>
+      <div className="auth-tabs" style={{ maxWidth: '850px', background: 'rgba(255,255,255,0.01)', border: '1px solid var(--color-border)', flexWrap: 'wrap' }}>
         <button 
           type="button" 
           className={`auth-tab-btn ${activeSubTab === 'compounding' ? 'active' : ''}`}
@@ -490,6 +808,15 @@ export const WealthSuite = () => {
         >
           <DollarSign size={14} style={{ display: 'inline', marginRight: '6px', verticalAlign: 'text-bottom' }} />
           FX Leakage
+        </button>
+        <button 
+          type="button" 
+          className={`auth-tab-btn ${activeSubTab === 'montecarlo' ? 'active' : ''}`}
+          onClick={() => setActiveSubTab('montecarlo')}
+          style={{ fontSize: '12px', padding: '10px 8px' }}
+        >
+          <Shield size={14} style={{ display: 'inline', marginRight: '6px', verticalAlign: 'text-bottom' }} />
+          Risk Simulator
         </button>
       </div>
 
@@ -1419,6 +1746,381 @@ export const WealthSuite = () => {
               })}
             </div>
           </div>
+        </div>
+      )}
+
+      {/* ==========================================================================
+         SUB-TAB 6: MONTE CARLO & CRISIS RISK SIMULATION PANELS
+         ========================================================================== */}
+      {activeSubTab === 'montecarlo' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+          
+          {/* Header Description */}
+          <div className="panel" style={{ background: 'linear-gradient(135deg, rgba(139,92,246,0.05) 0%, rgba(6,182,212,0.05) 100%)', border: '1px solid rgba(139,92,246,0.15)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'linear-gradient(135deg, var(--color-primary) 0%, var(--color-accent) 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white' }}>
+                <Shield size={20} />
+              </div>
+              <div>
+                <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '600' }}>Premium Portfolio Risk Suite</h3>
+                <p style={{ margin: '4px 0 0 0', fontSize: '12px', color: 'var(--text-secondary)' }}>
+                  Model future wealth probability spreads using 500-run randomized walks (Monte Carlo) and stress-test assets against major historical stock market crashes.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="panels-grid compounding-grid">
+            
+            {/* Simulation Parameters */}
+            <div className="panel" style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
+              <div className="panel-header">
+                <h3 className="panel-title">Simulation Inputs</h3>
+              </div>
+
+              <div className="filter-group" style={{ margin: 0 }}>
+                <label htmlFor="mc-principal">Current Portfolio Value ({getSymbol()})</label>
+                <input
+                  id="mc-principal"
+                  type="number"
+                  className="input-field"
+                  value={mcPrincipal}
+                  onChange={(e) => setMcPrincipal(Math.max(1, parseFloat(e.target.value) || 0))}
+                />
+              </div>
+
+              <div className="filter-group" style={{ margin: 0 }}>
+                <label>Monthly Contribution ({getSymbol()}): {formatMoney(mcContribution)}</label>
+                <input
+                  type="range"
+                  min="0"
+                  max="5000"
+                  step="50"
+                  className="slider"
+                  value={mcContribution}
+                  onChange={(e) => setMcContribution(parseInt(e.target.value))}
+                />
+              </div>
+
+              <div className="filter-group" style={{ margin: 0 }}>
+                <label htmlFor="mc-goal">Savings Target Goal ({getSymbol()})</label>
+                <input
+                  id="mc-goal"
+                  type="number"
+                  className="input-field"
+                  value={mcGoal}
+                  onChange={(e) => setMcGoal(Math.max(100, parseFloat(e.target.value) || 0))}
+                />
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div className="filter-group" style={{ margin: 0 }}>
+                  <label>Horizon (Years): {mcYears}</label>
+                  <input
+                    type="range"
+                    min="5"
+                    max="40"
+                    step="1"
+                    className="slider"
+                    value={mcYears}
+                    onChange={(e) => setMcYears(parseInt(e.target.value))}
+                  />
+                </div>
+
+                <div className="filter-group" style={{ margin: 0 }}>
+                  <label htmlFor="mc-alloc-select">Asset Mix / Risk</label>
+                  <select
+                    id="mc-alloc-select"
+                    className="select-field"
+                    value={mcAllocation}
+                    onChange={(e) => setMcAllocation(e.target.value)}
+                  >
+                    <option value="conservative">Conservative Balanced (30/70)</option>
+                    <option value="moderate">Moderate Growth (60/40)</option>
+                    <option value="aggressive">Aggressive Stock (90/10)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', padding: '12px', borderRadius: '8px', backgroundColor: 'rgba(255,255,255,0.01)', border: '1px solid var(--color-border)', fontSize: '11px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span style={{ color: 'var(--text-muted)' }}>Mix Rate of Return (Ann.):</span>
+                  <strong style={{ color: 'var(--color-primary)' }}>{allocationProfiles[mcAllocation].return}%</strong>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span style={{ color: 'var(--text-muted)' }}>Mix Volatility / Risk:</span>
+                  <strong style={{ color: 'var(--color-accent)' }}>{allocationProfiles[mcAllocation].vol}% Std. Dev</strong>
+                </div>
+              </div>
+            </div>
+
+            {/* Monte Carlo Visualizer */}
+            <div className="panel" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div className="panel-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <h3 className="panel-title">Monte Carlo Projections</h3>
+                <span style={{ fontSize: '11px', backgroundColor: mcData.successRate >= 70 ? 'rgba(16,185,129,0.15)' : mcData.successRate >= 40 ? 'rgba(245,158,11,0.15)' : 'rgba(239,68,68,0.15)', color: mcData.successRate >= 70 ? '#10b981' : mcData.successRate >= 40 ? '#f59e0b' : '#ef4444', padding: '3px 8px', borderRadius: 'var(--radius-full)', fontWeight: 'bold' }}>
+                  Goal Success Prob.: {mcData.successRate}%
+                </span>
+              </div>
+
+              {/* Shaded confidence interval SVG */}
+              <div 
+                ref={mcChartRef}
+                onMouseMove={handleMcMouseMove}
+                onMouseLeave={() => setMcHoverIndex(null)}
+                style={{ position: 'relative', width: '100%', height: '220px', cursor: 'crosshair' }}
+              >
+                <svg width="100%" height="220" viewBox="0 0 500 220" style={{ overflow: 'visible' }}>
+                  <defs>
+                    <linearGradient id="mcAreaGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="var(--color-accent)" stopOpacity="0.1" />
+                      <stop offset="100%" stopColor="var(--color-primary)" stopOpacity="0.01" />
+                    </linearGradient>
+                  </defs>
+                  
+                  {/* Grid Lines */}
+                  {[0, 0.25, 0.5, 0.75, 1].map((p, i) => {
+                    const h = svgH - padding.top - padding.bottom;
+                    const y = padding.top + p * h;
+                    const gridVal = maxMcVal * (1 - p);
+                    return (
+                      <g key={i}>
+                        <line x1={padding.left} y1={y} x2={svgW - padding.right} y2={y} stroke="var(--color-border)" strokeWidth="1" strokeDasharray="3 3" />
+                        <text x={padding.left - 10} y={y + 4} fill="var(--text-muted)" fontSize="9" textAnchor="end">{formatMoney(gridVal)}</text>
+                      </g>
+                    );
+                  })}
+
+                  {/* Shaded Area Polygon (confidence range) */}
+                  {mcConfidencePolygon && (
+                    <polygon points={mcConfidencePolygon} fill="url(#mcAreaGrad)" />
+                  )}
+
+                  {/* Percentile Lines */}
+                  {mcLines.p90 && <path d={mcLines.p90} fill="none" stroke="#10b981" strokeWidth="2" strokeDasharray="3 2" opacity="0.8" />}
+                  {mcLines.p50 && <path d={mcLines.p50} fill="none" stroke="var(--color-accent)" strokeWidth="2.5" />}
+                  {mcLines.p10 && <path d={mcLines.p10} fill="none" stroke="#ef4444" strokeWidth="2" strokeDasharray="3 2" opacity="0.8" />}
+
+                  {/* Horizontal Goal Target Line */}
+                  {mcGoalY !== null && (
+                    <g>
+                      <line x1={padding.left} y1={mcGoalY} x2={svgW - padding.right} y2={mcGoalY} stroke="#f59e0b" strokeWidth="1.5" strokeDasharray="4 4" />
+                      <text x={svgW - padding.right - 5} y={mcGoalY - 6} fill="#f59e0b" fontSize="9" fontWeight="bold" textAnchor="end">TARGET: {formatMoney(mcGoal)}</text>
+                    </g>
+                  )}
+
+                  {/* Hover cursor line */}
+                  {mcHoverIndex !== null && mcCoords[mcHoverIndex] && (
+                    <line 
+                      x1={mcCoords[mcHoverIndex].x} 
+                      y1={padding.top} 
+                      x2={mcCoords[mcHoverIndex].x} 
+                      y2={svgH - padding.bottom} 
+                      stroke="var(--text-muted)" 
+                      strokeWidth="1" 
+                    />
+                  )}
+                </svg>
+
+                {/* Tooltip Card */}
+                {mcHoverIndex !== null && mcCoords[mcHoverIndex] && (
+                  <div style={{
+                    position: 'absolute',
+                    top: `${mousePos.y}%`,
+                    left: `${mousePos.x > 50 ? mousePos.x - 45 : mousePos.x + 5}%`,
+                    transform: 'translateY(-50%)',
+                    backgroundColor: 'rgba(15, 23, 42, 0.95)',
+                    border: '1px solid var(--color-border)',
+                    borderRadius: '8px',
+                    padding: '8px 12px',
+                    fontSize: '11px',
+                    pointerEvents: 'none',
+                    zIndex: 10,
+                    boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '4px'
+                  }}>
+                    <div style={{ fontWeight: 'bold', color: 'white', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '3px', marginBottom: '3px' }}>
+                      Year {mcCoords[mcHoverIndex].data.year} Forecast
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: '20px' }}>
+                      <span style={{ color: '#10b981' }}>🟢 Optimistic (90%):</span>
+                      <strong>{formatMoney(mcCoords[mcHoverIndex].data.p90)}</strong>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: '20px' }}>
+                      <span style={{ color: 'var(--color-accent)' }}>🔵 Median (50%):</span>
+                      <strong>{formatMoney(mcCoords[mcHoverIndex].data.p50)}</strong>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: '20px' }}>
+                      <span style={{ color: '#ef4444' }}>🔴 Pessimistic (10%):</span>
+                      <strong>{formatMoney(mcCoords[mcHoverIndex].data.p10)}</strong>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* CRISIS STRESS TESTER GRID */}
+          <div className="panels-grid compounding-grid" style={{ marginTop: '10px' }}>
+            
+            {/* Crisis Selection and Stats */}
+            <div className="panel" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div className="panel-header">
+                <h3 className="panel-title">Crisis Stress Tester</h3>
+              </div>
+
+              <div className="filter-group" style={{ margin: 0 }}>
+                <label htmlFor="crisis-select">Select Historical Crisis Scenario</label>
+                <select
+                  id="crisis-select"
+                  className="select-field"
+                  value={selectedCrisis}
+                  onChange={(e) => setSelectedCrisis(e.target.value)}
+                >
+                  <option value="gfc">2008 Great Financial Crisis (Housing Meltdown)</option>
+                  <option value="dotcom">2000 Dot-com Bubble Burst (Tech Wreck)</option>
+                  <option value="depression">1929 Great Depression (Historic Deflation)</option>
+                  <option value="covid">2020 COVID Crash (Flash Market Panic)</option>
+                </select>
+              </div>
+
+              <p style={{ fontSize: '11px', color: 'var(--text-secondary)', lineHeight: '1.4', margin: 0, fontStyle: 'italic', backgroundColor: 'rgba(255,255,255,0.01)', padding: '10px', borderRadius: '6px', border: '1px solid var(--color-border)' }}>
+                {crisisProfiles[selectedCrisis].desc}
+              </p>
+
+              {/* Stress Test Statistics */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                <div style={{ padding: '10px', borderRadius: '8px', border: '1px solid var(--color-border)', backgroundColor: 'rgba(255,255,255,0.01)' }}>
+                  <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>Max Portfolio Loss</div>
+                  <strong style={{ fontSize: '15px', color: 'var(--color-expense)' }}>-{crisisData.maxDraw.toFixed(1)}%</strong>
+                </div>
+
+                <div style={{ padding: '10px', borderRadius: '8px', border: '1px solid var(--color-border)', backgroundColor: 'rgba(255,255,255,0.01)' }}>
+                  <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>Trough Value (Lowest Point)</div>
+                  <strong style={{ fontSize: '15px', color: 'white' }}>{formatMoney(crisisData.trough)}</strong>
+                </div>
+
+                <div style={{ padding: '10px', borderRadius: '8px', border: '1px solid var(--color-border)', backgroundColor: 'rgba(255,255,255,0.01)' }}>
+                  <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>Worst Peak-to-Trough Loss</div>
+                  <strong style={{ fontSize: '15px', color: 'var(--color-expense)' }}>-{formatMoney(crisisData.totalLostVal)}</strong>
+                </div>
+
+                <div style={{ padding: '10px', borderRadius: '8px', border: '1px solid var(--color-border)', backgroundColor: 'rgba(255,255,255,0.01)' }}>
+                  <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>Crisis Recovery Status</div>
+                  <strong style={{ fontSize: '11px', color: crisisData.list[crisisData.list.length - 1].balance >= mcPrincipal ? '#10b981' : '#f59e0b', display: 'block', marginTop: '3px' }}>
+                    {crisisData.list[crisisData.list.length - 1].balance >= mcPrincipal 
+                      ? `Full Recovery (Net Gain)` 
+                      : `Incomplete (${formatMoney(mcPrincipal - crisisData.list[crisisData.list.length - 1].balance)} loss)`
+                    }
+                  </strong>
+                </div>
+              </div>
+            </div>
+
+            {/* Crisis Performance Chart */}
+            <div className="panel" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div className="panel-header">
+                <h3 className="panel-title">Simulated Portfolio Path</h3>
+              </div>
+
+              {/* Stress test path SVG */}
+              <div 
+                ref={crisisChartRef}
+                onMouseMove={handleCrisisMouseMove}
+                onMouseLeave={() => setCrisisHoverIndex(null)}
+                style={{ position: 'relative', width: '100%', height: '220px', cursor: 'crosshair' }}
+              >
+                <svg width="100%" height="220" viewBox="0 0 500 220" style={{ overflow: 'visible' }}>
+                  <defs>
+                    <linearGradient id="crisisAreaGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="var(--color-expense)" stopOpacity="0.12" />
+                      <stop offset="100%" stopColor="var(--color-expense)" stopOpacity="0.01" />
+                    </linearGradient>
+                  </defs>
+
+                  {/* Grid Lines */}
+                  {[0, 0.25, 0.5, 0.75, 1].map((p, i) => {
+                    const h = svgH - padding.top - padding.bottom;
+                    const y = padding.top + p * h;
+                    const gridVal = maxCrisisVal * (1 - p);
+                    return (
+                      <g key={i}>
+                        <line x1={padding.left} y1={y} x2={svgW - padding.right} y2={y} stroke="var(--color-border)" strokeWidth="1" strokeDasharray="3 3" />
+                        <text x={padding.left - 10} y={y + 4} fill="var(--text-muted)" fontSize="9" textAnchor="end">{formatMoney(gridVal)}</text>
+                      </g>
+                    );
+                  })}
+
+                  {/* Crisis Shaded Area */}
+                  {crisisAreaPath && (
+                    <path d={crisisAreaPath} fill="url(#crisisAreaGrad)" />
+                  )}
+
+                  {/* Crisis Value Path Line */}
+                  {crisisLinePath && (
+                    <path d={crisisLinePath} fill="none" stroke="var(--color-expense)" strokeWidth="2.5" />
+                  )}
+
+                  {/* Starting Value Horizontal Reference Line */}
+                  <line x1={padding.left} y1={crisisStartValY} x2={svgW - padding.right} y2={crisisStartValY} stroke="var(--text-muted)" strokeWidth="1" strokeDasharray="4 4" />
+                  <text x={padding.left + 5} y={crisisStartValY - 6} fill="var(--text-secondary)" fontSize="8" fontWeight="600">START VALUE: {formatMoney(mcPrincipal)}</text>
+
+                  {/* Trough point marker */}
+                  {crisisTroughCoords && (
+                    <circle cx={crisisTroughCoords.x} cy={crisisTroughCoords.y} r="5" fill="#ef4444" stroke="rgba(239,68,68,0.3)" strokeWidth="5" />
+                  )}
+
+                  {/* Hover cursor line */}
+                  {crisisHoverIndex !== null && crisisCoords[crisisHoverIndex] && (
+                    <line 
+                      x1={crisisCoords[crisisHoverIndex].x} 
+                      y1={padding.top} 
+                      x2={crisisCoords[crisisHoverIndex].x} 
+                      y2={svgH - padding.bottom} 
+                      stroke="var(--text-muted)" 
+                      strokeWidth="1" 
+                    />
+                  )}
+                </svg>
+
+                {/* Tooltip Card */}
+                {crisisHoverIndex !== null && crisisCoords[crisisHoverIndex] && (
+                  <div style={{
+                    position: 'absolute',
+                    top: `${mousePos.y}%`,
+                    left: `${mousePos.x > 50 ? mousePos.x - 45 : mousePos.x + 5}%`,
+                    transform: 'translateY(-50%)',
+                    backgroundColor: 'rgba(15, 23, 42, 0.95)',
+                    border: '1px solid var(--color-border)',
+                    borderRadius: '8px',
+                    padding: '8px 12px',
+                    fontSize: '11px',
+                    pointerEvents: 'none',
+                    zIndex: 10,
+                    boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '4px'
+                  }}>
+                    <div style={{ fontWeight: 'bold', color: 'white', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '3px', marginBottom: '3px' }}>
+                      Month {crisisCoords[crisisHoverIndex].data.month} Timeline
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: '20px' }}>
+                      <span style={{ color: 'var(--text-secondary)' }}>Portfolio Value:</span>
+                      <strong style={{ color: 'white' }}>{formatMoney(crisisCoords[crisisHoverIndex].data.balance)}</strong>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: '20px' }}>
+                      <span style={{ color: 'var(--color-expense)' }}>Drawdown:</span>
+                      <strong style={{ color: 'var(--color-expense)' }}>{crisisCoords[crisisHoverIndex].data.drawPct.toFixed(1)}%</strong>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
         </div>
       )}
     </div>
