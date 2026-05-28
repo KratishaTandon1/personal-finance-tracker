@@ -250,6 +250,7 @@ export const FinanceProvider = ({ children }) => {
         setLoading(false);
         throw error;
       }
+      setLoading(false);
       showToast('Verification email sent or account created!', 'success');
       return data.user;
     } else {
