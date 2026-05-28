@@ -497,7 +497,7 @@ export const WealthSuite = () => {
          SUB-TAB 1: COMPOUNDING HORIZONS PANELS
          ========================================================================== */}
       {activeSubTab === 'compounding' && (
-        <div className="panels-grid" style={{ gridTemplateColumns: '1fr 1.2fr', gap: '24px' }}>
+        <div className="panels-grid compounding-grid">
           {/* Controls */}
           <div className="panel" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
             <div className="panel-header">
@@ -509,7 +509,7 @@ export const WealthSuite = () => {
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
               <label style={{ fontSize: '10px', color: 'var(--text-muted)', fontWeight: 'bold', textTransform: 'uppercase' }}>Risk Profiles</label>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px' }}>
+              <div className="risk-presets-grid">
                 {RISK_PRESETS.map(preset => (
                   <button
                     key={preset.id}
@@ -735,7 +735,7 @@ export const WealthSuite = () => {
          SUB-TAB 2: FIRE RETIREMENT CALCULATOR PANELS
          ========================================================================== */}
       {activeSubTab === 'fire' && (
-        <div className="panels-grid" style={{ gridTemplateColumns: '1fr 1.2fr', gap: '24px' }}>
+        <div className="panels-grid fire-grid">
           {/* Controls */}
           <div className="panel" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
             <div className="panel-header">
@@ -846,7 +846,7 @@ export const WealthSuite = () => {
             </div>
 
             {/* Target Cards */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px' }}>
+            <div className="fire-milestone-cards">
               <div style={{ backgroundColor: 'rgba(255,255,255,0.01)', padding: '10px', borderRadius: '8px', border: '1px solid var(--color-border)', textAlign: 'center' }}>
                 <div style={{ fontSize: '9px', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 'bold' }}>Lean FIRE</div>
                 <div style={{ fontSize: '15px', fontWeight: '700', color: '#10b981', marginTop: '2px' }}>{formatMoney(leanFireTarget)}</div>
@@ -930,7 +930,7 @@ export const WealthSuite = () => {
          SUB-TAB 3: ASSET ALLOCATOR & REBALANCER PANELS
          ========================================================================== */}
       {activeSubTab === 'assets' && (
-        <div className="panels-grid" style={{ gridTemplateColumns: '1.1fr 1fr', gap: '24px' }}>
+        <div className="panels-grid assets-grid">
           {/* Allocations Table */}
           <div className="panel" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
             <div className="panel-header" style={{ marginBottom: '8px' }}>
@@ -998,7 +998,7 @@ export const WealthSuite = () => {
             </div>
 
             {/* Quick Add Asset Form */}
-            <form onSubmit={handleAddAsset} style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr 1fr auto', gap: '8px', alignItems: 'flex-end', borderTop: '1px solid var(--color-border)', paddingTop: '16px' }}>
+            <form onSubmit={handleAddAsset} className="quick-add-form">
               <div className="filter-group">
                 <label style={{ fontSize: '10px' }} htmlFor="asset-name">Asset Name</label>
                 <input 
@@ -1111,7 +1111,7 @@ export const WealthSuite = () => {
          SUB-TAB 4: DEBT SNOWBALL VS. AVALANCHE PLANNER
          ========================================================================== */}
       {activeSubTab === 'debts' && (
-        <div className="panels-grid" style={{ gridTemplateColumns: '1.2fr 1fr', gap: '24px' }}>
+        <div className="panels-grid debts-grid">
           {/* Debts Table */}
           <div className="panel" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
             <div className="panel-header" style={{ marginBottom: '8px' }}>
@@ -1156,7 +1156,7 @@ export const WealthSuite = () => {
             </div>
 
             {/* Quick Add Debt Form */}
-            <form onSubmit={handleAddDebt} style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr 1fr 1fr auto', gap: '8px', alignItems: 'flex-end', borderTop: '1px solid var(--color-border)', paddingTop: '16px' }}>
+            <form onSubmit={handleAddDebt} className="quick-add-debt-form">
               <div className="filter-group">
                 <label style={{ fontSize: '10px' }} htmlFor="debt-name">Name</label>
                 <input 
@@ -1305,7 +1305,7 @@ export const WealthSuite = () => {
          SUB-TAB 5: FX LEAKAGE fee optimizer PANELS
          ========================================================================== */}
       {activeSubTab === 'fx' && (
-        <div className="panels-grid" style={{ gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
+        <div className="panels-grid fx-grid">
           {/* Transfer Calculator */}
           <div className="panel" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
             <div className="panel-header">
