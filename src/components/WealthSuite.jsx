@@ -23,6 +23,10 @@ const RISK_PRESETS = [
   { id: 'aggressive', name: 'Aggressive Growth', rate: 11, desc: 'Global Equities & Tech stocks', color: '#8b5cf6' }
 ];
 
+const svgW = 500;
+const svgH = 220;
+const padding = { top: 15, right: 15, bottom: 30, left: 65 };
+
 export const WealthSuite = () => {
   const { currency, transactions } = useFinance();
   const [activeSubTab, setActiveSubTab] = useState('compounding'); // 'compounding' | 'fire' | 'assets' | 'debts' | 'fx' | 'montecarlo'
@@ -399,10 +403,7 @@ export const WealthSuite = () => {
     return Math.max(...compoundingData.map(d => d.wealth), 1000);
   }, [compoundingData]);
 
-  // SVG parameters
-  const svgW = 500;
-  const svgH = 220;
-  const padding = { top: 15, right: 15, bottom: 30, left: 65 };
+  // SVG parameters (declared at module level above)
 
   const compoundingCoords = useMemo(() => {
     const coords = [];
