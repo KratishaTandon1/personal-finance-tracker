@@ -52,6 +52,9 @@ export const Auth = () => {
         await login(email, password);
       } else {
         await signup(email, password);
+        if (storageMode === 'supabase') {
+          setAuthView('verify');
+        }
       }
     } catch (err) {
       console.error(err);
@@ -68,13 +71,32 @@ export const Auth = () => {
       <div className="auth-card">
         <div className="auth-header">
           <div className="auth-logo">
-            <Lock size={26} />
+            {authView === 'verify' ? <Mail size={26} /> : <Lock size={26} />}
           </div>
-          <h2>WealthFlow</h2>
-          <p>Sleek & Smart Personal Finance Tracker</p>
+          <h2>{authView === 'verify' ? 'Confirm Email' : 'WealthFlow'}</h2>
+          <p>{authView === 'verify' ? 'Activation link sent' : 'Sleek & Smart Personal Finance Tracker'}</p>
         </div>
 
-        {storageMode === 'local' ? (
+        {authView === 'verify' ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', textAlign: 'center', padding: '10px 0' }}>
+            <p style={{ fontSize: '14px', color: 'var(--text-secondary)', lineHeight: '1.5' }}>
+              We have sent a verification link to <strong>{email}</strong>.
+            </p>
+            <p style={{ fontSize: '13px', color: 'var(--text-muted)', lineHeight: '1.5' }}>
+              Please check your inbox (including your spam or promotions folder) and click the link to activate your account.
+            </p>
+            <button
+              type="button"
+              className="btn-primary"
+              style={{ marginTop: '8px' }}
+              onClick={() => { setAuthView('login'); setError(''); }}
+            >
+              Back to Sign In
+            </button>
+          </div>
+        ) : (
+          <>
+            {storageMode === 'local' ? (
           <div className="auth-demo-banner">
             <WifiOff size={16} style={{ flexShrink: 0, marginTop: '2px' }} />
             <div>
@@ -212,7 +234,9 @@ export const Auth = () => {
             <p>A link will be sent to confirm and reset your credentials.</p>
           )}
         </div>
-      </div>
-    </div>
+      </>
+    )}
+  </div>
+</div>
   );
 };
