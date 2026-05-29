@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useFinance, CATEGORIES } from '../context/FinanceContext';
+import { CustomSelect } from './CustomSelect';
 import { 
   Plus, 
   Search, 
@@ -169,34 +170,30 @@ export const TransactionsList = ({ onEditTransaction, onOpenAddModal }) => {
 
         <div className="filter-group">
           <label htmlFor="type">Type</label>
-          <select 
+          <CustomSelect 
             id="type"
-            className="select-field" 
             value={filterType}
             onChange={(e) => { setFilterType(e.target.value); setFilterCategory('all'); setCurrentPage(1); }}
-          >
-            <option value="all">All Transactions</option>
-            <option value="income">Income Only</option>
-            <option value="expense">Expense Only</option>
-          </select>
+            options={[
+              { value: 'all', label: 'All Transactions' },
+              { value: 'income', label: 'Income Only' },
+              { value: 'expense', label: 'Expense Only' }
+            ]}
+          />
         </div>
 
         <div className="filter-group">
           <label htmlFor="cat">Category</label>
-          <select 
+          <CustomSelect 
             id="cat"
-            className="select-field" 
             value={filterCategory}
             onChange={(e) => { setFilterCategory(e.target.value); setCurrentPage(1); }}
-          >
-            <option value="all">All Categories</option>
-            {filterType !== 'expense' && CATEGORIES.income.map(c => (
-              <option key={c.id} value={c.id}>{c.name}</option>
-            ))}
-            {filterType !== 'income' && CATEGORIES.expense.map(c => (
-              <option key={c.id} value={c.id}>{c.name}</option>
-            ))}
-          </select>
+            options={[
+              { value: 'all', label: 'All Categories' },
+              ...(filterType !== 'expense' ? CATEGORIES.income.map(c => ({ value: c.id, label: c.name })) : []),
+              ...(filterType !== 'income' ? CATEGORIES.expense.map(c => ({ value: c.id, label: c.name })) : [])
+            ]}
+          />
         </div>
 
         <div className="filter-group" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>

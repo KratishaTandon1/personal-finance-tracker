@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useFinance, CATEGORIES } from '../context/FinanceContext';
+import { CustomSelect } from './CustomSelect';
 import { X } from 'lucide-react';
 import Tesseract from 'tesseract.js';
 
@@ -486,34 +487,32 @@ TOTAL AMOUNT: $${sample.amount.toFixed(2)}
                       {/* Category Field */}
                       <div style={{ display: 'grid', gridTemplateColumns: '80px 1fr', alignItems: 'center', gap: '8px' }}>
                         <label style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: '500' }}>Category</label>
-                        <select 
-                          className="select-field" 
-                          style={{ padding: '6px 10px', fontSize: '12px' }} 
+                        <CustomSelect 
+                          id="scanner-cat-select"
                           value={scanResult.category} 
                           onChange={(e) => setScanResult({ ...scanResult, category: e.target.value })}
-                        >
-                          {CATEGORIES[scanResult.type || 'expense'].map(c => (
-                            <option key={c.id} value={c.id}>{c.name}</option>
-                          ))}
-                        </select>
+                          options={CATEGORIES[scanResult.type || 'expense'].map(c => ({ value: c.id, label: c.name }))}
+                          triggerStyle={{ padding: '6px 10px', fontSize: '12px' }}
+                        />
                       </div>
 
                       {/* Type Field (Expense vs Income) */}
                       <div style={{ display: 'grid', gridTemplateColumns: '80px 1fr', alignItems: 'center', gap: '8px' }}>
                         <label style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: '500' }}>Type</label>
-                        <select 
-                          className="select-field" 
-                          style={{ padding: '6px 10px', fontSize: '12px' }} 
+                        <CustomSelect 
+                          id="scanner-type-select"
                           value={scanResult.type || 'expense'} 
                           onChange={(e) => {
                             const newType = e.target.value;
                             const defaultCat = CATEGORIES[newType][0]?.id || '';
                             setScanResult({ ...scanResult, type: newType, category: defaultCat });
                           }}
-                        >
-                          <option value="expense">Expense</option>
-                          <option value="income">Income</option>
-                        </select>
+                          options={[
+                            { value: 'expense', label: 'Expense' },
+                            { value: 'income', label: 'Income' }
+                          ]}
+                          triggerStyle={{ padding: '6px 10px', fontSize: '12px' }}
+                        />
                       </div>
                     </div>
 
@@ -591,19 +590,12 @@ TOTAL AMOUNT: $${sample.amount.toFixed(2)}
 
               <div className="auth-input-group">
                 <label htmlFor="category">Category</label>
-                <select
+                <CustomSelect
                   id="category"
-                  className="select-field"
                   value={category}
                   onChange={(e) => setCategory(e.target.value)}
-                  required
-                >
-                  {CATEGORIES[type].map((cat) => (
-                    <option key={cat.id} value={cat.id}>
-                      {cat.name}
-                    </option>
-                  ))}
-                </select>
+                  options={CATEGORIES[type].map(c => ({ value: c.id, label: c.name }))}
+                />
               </div>
 
               <div className="auth-input-group">

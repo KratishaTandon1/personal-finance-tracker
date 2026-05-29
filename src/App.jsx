@@ -9,6 +9,7 @@ import { Subscriptions } from './components/Subscriptions';
 import { WealthyAI } from './components/WealthyAI';
 import { WealthSuite } from './components/WealthSuite';
 import { ResetPassword } from './components/ResetPassword';
+import { CustomSelect } from './components/CustomSelect';
 import { 
   LayoutDashboard, 
   List, 
@@ -151,20 +152,19 @@ const AppInner = () => {
         </div>
 
         <div className="sidebar-footer">
-          {/* Currency Preference Selector */}
           <div className="filter-group" style={{ marginBottom: '8px' }}>
             <label htmlFor="currency-select" style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Wallet Currency</label>
-            <select
+            <CustomSelect
               id="currency-select"
-              className="select-field"
-              style={{ padding: '6px 10px', fontSize: '12px', background: 'rgba(0,0,0,0.3)' }}
+              triggerStyle={{ padding: '6px 10px', fontSize: '12px', background: 'rgba(0,0,0,0.3)' }}
               value={currency}
               onChange={(e) => setCurrency(e.target.value)}
-            >
-              <option value="USD">USD ($)</option>
-              <option value="EUR">EUR (€)</option>
-              <option value="INR">INR (₹)</option>
-            </select>
+              options={[
+                { value: 'USD', label: 'USD ($)' },
+                { value: 'EUR', label: 'EUR (€)' },
+                { value: 'INR', label: 'INR (₹)' }
+              ]}
+            />
           </div>
 
           <div className="user-badge">

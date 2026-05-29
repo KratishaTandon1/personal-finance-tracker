@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useFinance, CATEGORIES } from '../context/FinanceContext';
+import { CustomSelect } from './CustomSelect';
 import { Calendar, Trash2, Zap, Clock, Plus, AlertCircle } from 'lucide-react';
 
 export const Subscriptions = () => {
@@ -119,16 +120,12 @@ export const Subscriptions = () => {
           </div>
           <div className="filter-group">
             <label htmlFor="subCat">Category</label>
-            <select 
+            <CustomSelect 
               id="subCat"
-              className="select-field"
               value={category}
               onChange={(e) => setCategory(e.target.value)}
-            >
-              {CATEGORIES.expense.map(c => (
-                <option key={c.id} value={c.id}>{c.name}</option>
-              ))}
-            </select>
+              options={CATEGORIES.expense.map(c => ({ value: c.id, label: c.name }))}
+            />
           </div>
           <div className="filter-group">
             <label htmlFor="subDay">Day of Month (1-31)</label>

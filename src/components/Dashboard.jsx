@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useFinance, CATEGORIES } from '../context/FinanceContext';
+import { CustomSelect } from './CustomSelect';
 import { 
   ArrowUpRight, 
   ArrowDownRight, 
@@ -631,16 +632,12 @@ export const Dashboard = ({ onNavigate }) => {
               <form onSubmit={handleBudgetSubmit} className="filter-panel" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', margin: 0, padding: '16px' }}>
                 <div className="filter-group">
                   <label htmlFor="budgetCat">Category</label>
-                  <select 
+                  <CustomSelect 
                     id="budgetCat"
-                    className="select-field" 
                     value={budgetCat}
                     onChange={(e) => setBudgetCat(e.target.value)}
-                  >
-                    {CATEGORIES.expense.map(c => (
-                      <option key={c.id} value={c.id}>{c.name}</option>
-                    ))}
-                  </select>
+                    options={CATEGORIES.expense.map(c => ({ value: c.id, label: c.name }))}
+                  />
                 </div>
                 <div className="filter-group">
                   <label htmlFor="budgetAmt">Limit Amount</label>

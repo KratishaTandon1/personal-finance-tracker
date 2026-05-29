@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { useFinance, CATEGORIES } from '../context/FinanceContext';
+import { CustomSelect } from './CustomSelect';
 import { 
   TrendingUp, 
   Flame, 
@@ -1655,16 +1656,16 @@ export const WealthSuite = () => {
             <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', alignItems: 'center', gap: '12px' }}>
               <div className="filter-group">
                 <label htmlFor="fx-from-select">From</label>
-                <select 
+                <CustomSelect 
                   id="fx-from-select"
-                  className="select-field" 
                   value={fxFrom} 
                   onChange={(e) => setFxFrom(e.target.value)}
-                >
-                  <option value="USD">USD ($)</option>
-                  <option value="EUR">EUR (€)</option>
-                  <option value="INR">INR (₹)</option>
-                </select>
+                  options={[
+                    { value: 'USD', label: 'USD ($)' },
+                    { value: 'EUR', label: 'EUR (€)' },
+                    { value: 'INR', label: 'INR (₹)' }
+                  ]}
+                />
               </div>
 
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', marginTop: '20px' }}>
@@ -1673,16 +1674,16 @@ export const WealthSuite = () => {
 
               <div className="filter-group">
                 <label htmlFor="fx-to-select">To</label>
-                <select 
+                <CustomSelect 
                   id="fx-to-select"
-                  className="select-field" 
                   value={fxTo} 
                   onChange={(e) => setFxTo(e.target.value)}
-                >
-                  <option value="USD">USD ($)</option>
-                  <option value="EUR">EUR (€)</option>
-                  <option value="INR">INR (₹)</option>
-                </select>
+                  options={[
+                    { value: 'USD', label: 'USD ($)' },
+                    { value: 'EUR', label: 'EUR (€)' },
+                    { value: 'INR', label: 'INR (₹)' }
+                  ]}
+                />
               </div>
             </div>
 
@@ -1830,16 +1831,16 @@ export const WealthSuite = () => {
 
                 <div className="filter-group" style={{ margin: 0 }}>
                   <label htmlFor="mc-alloc-select">Asset Mix / Risk</label>
-                  <select
+                  <CustomSelect
                     id="mc-alloc-select"
-                    className="select-field"
                     value={mcAllocation}
                     onChange={(e) => setMcAllocation(e.target.value)}
-                  >
-                    <option value="conservative">Conservative Balanced (30/70)</option>
-                    <option value="moderate">Moderate Growth (60/40)</option>
-                    <option value="aggressive">Aggressive Stock (90/10)</option>
-                  </select>
+                    options={[
+                      { value: 'conservative', label: 'Conservative Balanced (30/70)' },
+                      { value: 'moderate', label: 'Moderate Growth (60/40)' },
+                      { value: 'aggressive', label: 'Aggressive Stock (90/10)' }
+                    ]}
+                  />
                 </div>
               </div>
 
@@ -1974,17 +1975,17 @@ export const WealthSuite = () => {
 
               <div className="filter-group" style={{ margin: 0 }}>
                 <label htmlFor="crisis-select">Select Historical Crisis Scenario</label>
-                <select
+                <CustomSelect
                   id="crisis-select"
-                  className="select-field"
                   value={selectedCrisis}
                   onChange={(e) => setSelectedCrisis(e.target.value)}
-                >
-                  <option value="gfc">2008 Great Financial Crisis (Housing Meltdown)</option>
-                  <option value="dotcom">2000 Dot-com Bubble Burst (Tech Wreck)</option>
-                  <option value="depression">1929 Great Depression (Historic Deflation)</option>
-                  <option value="covid">2020 COVID Crash (Flash Market Panic)</option>
-                </select>
+                  options={[
+                    { value: 'gfc', label: '2008 Great Financial Crisis (Housing Meltdown)' },
+                    { value: 'dotcom', label: '2000 Dot-com Bubble Burst (Tech Wreck)' },
+                    { value: 'depression', label: '1929 Great Depression (Historic Deflation)' },
+                    { value: 'covid', label: '2020 COVID Crash (Flash Market Panic)' }
+                  ]}
+                />
               </div>
 
               <p style={{ fontSize: '11px', color: 'var(--text-secondary)', lineHeight: '1.4', margin: 0, fontStyle: 'italic', backgroundColor: 'rgba(255,255,255,0.01)', padding: '10px', borderRadius: '6px', border: '1px solid var(--color-border)' }}>

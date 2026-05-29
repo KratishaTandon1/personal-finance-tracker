@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useFinance, CATEGORIES } from '../context/FinanceContext';
+import { CustomSelect } from './CustomSelect';
 import { Target, Trash2, Calendar, PlusCircle, Plus, Check } from 'lucide-react';
 
 export const SavingsGoals = () => {
@@ -101,16 +102,16 @@ export const SavingsGoals = () => {
           </div>
           <div className="filter-group">
             <label htmlFor="goalCat">Funding Source Tag</label>
-            <select 
+            <CustomSelect 
               id="goalCat"
-              className="select-field"
               value={category}
               onChange={(e) => setCategory(e.target.value)}
-            >
-              <option value="savings">General Savings</option>
-              <option value="investments">Investments</option>
-              <option value="leisure">Leisure Fund</option>
-            </select>
+              options={[
+                { value: 'savings', label: 'General Savings' },
+                { value: 'investments', label: 'Investments' },
+                { value: 'leisure', label: 'Leisure Fund' }
+              ]}
+            />
           </div>
           <div className="filter-group">
             <label htmlFor="goalDate">Target Date</label>
